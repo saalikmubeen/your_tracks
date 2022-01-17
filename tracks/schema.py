@@ -1,5 +1,6 @@
 import graphene
 from graphene_django import DjangoObjectType
+from graphql_jwt.decorators import login_required
 from .models import Track
 
 class TrackType(DjangoObjectType):
@@ -24,9 +25,10 @@ class CreateTrack(graphene.Mutation):
 
     track = graphene.Field(TrackType) # return type of the mutation
 
+    @login_required
     def mutate(root, info, title, description, url):
-        if not info.context.user.is_authenticated:
-            raise Exception('You must be logged in to create a track')
+        # if not info.context.user.is_authenticated:
+        #     raise Exception('You must be logged in to create a track')
         
         track = Track.objects.create(title=title, description=description, url=url, posted_by=info.context.user)
         return CreateTrack(track=track)
