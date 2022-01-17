@@ -1,7 +1,7 @@
 import graphene
 from graphene_django import DjangoObjectType
 from graphql_jwt.decorators import login_required
-from .models import Track
+from .models import Track, Like
 
 class TrackType(DjangoObjectType):
     class Meta:
@@ -9,12 +9,20 @@ class TrackType(DjangoObjectType):
         fields = "__all__"
 
 
+class LikeType(DjangoObjectType):
+    class Meta:
+        model = Like
+
 class Query(graphene.ObjectType):
     tracks = graphene.List(graphene.NonNull(TrackType))
+    likes = graphene.List(graphene.NonNull(LikeType))
 
     def resolve_tracks(root, info, **kwargs):
         # Querying a list
         return Track.objects.all()
+    
+    def resolve_likes(root):
+        return Like.objects.all()
 
 
 class CreateTrack(graphene.Mutation):
@@ -75,9 +83,32 @@ class DeleteTrack(graphene.Mutation):
         track.delete()
 
         return DeleteTrack(track_id=track_id)
-    
-    
+
+
+class LikeTrack(graphene.Mutation):
+    class Arguments:
+        track_id = graphene.String(required=True)
+
+    track = graphene.Field(TrackType)
+
+    @login_required
+    def mutate(root, info, track_id):
+        
+        track = Track.objects.get(pk=track_id)
+        
+        if not track:
+            raise Exception('Cannot find the track')
+        
+        Like.objects.create(
+            liked_by=info.context.user,
+            track=track
+        )
+        
+        return LikeTrack(track=track)
+
+
 class Mutation(graphene.ObjectType):
     create_track = CreateTrack.Field()
     update_track = UpdateTrack.Field()
     delete_track = DeleteTrack.Field()
+    like_track = LikeTrack.Field()
