@@ -38,8 +38,14 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    'graphene_django',
+    
     'tracks.apps.TracksConfig'
 ]
+
+GRAPHENE = {
+    "SCHEMA": "your_tracks.schema.schema"
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
