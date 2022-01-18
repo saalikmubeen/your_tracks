@@ -1,6 +1,8 @@
 import graphene
 from graphene_django import DjangoObjectType
 from graphql_jwt.decorators import login_required
+from graphql import GraphQLError
+from django.db.models import Q
 from .models import Track, Like
 
 class TrackType(DjangoObjectType):
@@ -14,10 +16,19 @@ class LikeType(DjangoObjectType):
         model = Like
 
 class Query(graphene.ObjectType):
-    tracks = graphene.List(graphene.NonNull(TrackType))
+    tracks = graphene.List(graphene.NonNull(TrackType),
+                           query=graphene.String(default_value= ""))
     likes = graphene.List(graphene.NonNull(LikeType))
 
-    def resolve_tracks(root, info, **kwargs):
+    def resolve_tracks(root, info, query):
+        
+        if query:
+            return Track.objects.filter((
+                Q(title__icontains=query) |
+                Q(description__icontains=query) |
+                Q(url__icontains=query) |
+                Q(posted_by__username__icontains=query)
+            ))
         # Querying a list
         return Track.objects.all()
     
@@ -36,7 +47,7 @@ class CreateTrack(graphene.Mutation):
     @login_required
     def mutate(root, info, title, description, url):
         # if not info.context.user.is_authenticated:
-        #     raise Exception('You must be logged in to create a track')
+        #     raise GraphQLError('You must be logged in to create a track')
         
         track = Track.objects.create(title=title, description=description, url=url, posted_by=info.context.user)
         return CreateTrack(track=track)
@@ -56,7 +67,7 @@ class UpdateTrack(graphene.Mutation):
         track = Track.objects.get(pk=id)
         
         if track.posted_by != info.context.user:
-            raise Exception('You are not authorized to perform this action')
+            raise GraphQLError('You are not authorized to perform this action')
         
         track.title = title
         track.description = description
@@ -78,7 +89,7 @@ class DeleteTrack(graphene.Mutation):
         track = Track.objects.get(pk=track_id)
 
         if track.posted_by != info.context.user:
-            raise Exception('You are not authorized to perform this action')
+            raise GraphQLError('You are not authorized to perform this action')
 
         track.delete()
 
@@ -97,7 +108,7 @@ class LikeTrack(graphene.Mutation):
         track = Track.objects.get(pk=track_id)
         
         if not track:
-            raise Exception('Cannot find the track')
+            raise GraphQLError('Cannot find the track')
         
         Like.objects.create(
             liked_by=info.context.user,
